@@ -19,271 +19,169 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5002;
 
-// Trust proxy (REQUIRED for Hostinger)
+/* =====================================================
+   TRUST PROXY (Hostinger / Reverse Proxy)
+===================================================== */
 app.set('trust proxy', 1);
 
-// ========================================
-// MIDDLEWARE CONFIGURATION
-// ========================================
+/* =====================================================
+   CORS CONFIG (FIXED)
+===================================================== */
+const allowedOrigins = [
+  'https://creativeeraevents.in',
+  'https://www.creativeeraevents.in',
+  'http://localhost:3000',
+  'http://localhost:5173'
+];
 
-// 1. CORS - MUST BE BEFORE ROUTES
-const corsOptions = {
-  origin: [
-    process.env.CLIENT_URL,  // https://creativeeraevents.in
-    'https://www.creativeeraevents.in',
-    'http://localhost:3000',  // For local development
-    'http://localhost:5173'   // For Vite development
-  ],
-  credentials: true,
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); 
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'), false);
+  },
+  credentials: false, 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With',
-    'Accept',
-    'Origin'
-  ],
-  exposedHeaders: ['Authorization'],
-  maxAge: 86400 // 24 hours
-};
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-app.use(cors(corsOptions));
+app.options('*', (req, res) => res.sendStatus(204));
 
-// Handle preflight requests
-app.options('*', cors(corsOptions));
-
-// 2. Body Parser
+/* =====================================================
+   BODY PARSER
+===================================================== */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 3. Logging Middleware (for debugging)
+/* =====================================================
+   LOGGING (SAFE)
+===================================================== */
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  console.log('Origin:', req.headers.origin);
+  console.log('Origin:', req.headers.origin || 'N/A');
   next();
 });
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ========================================
-// SOCKET.IO CONFIGURATION
-// ========================================
-
+/* =====================================================
+   SOCKET.IO CONFIG
+===================================================== */
 const io = socketIo(server, {
   cors: {
-    origin: [
-      process.env.CLIENT_URL,
-      'https://www.creativeeraevents.in',
-      'http://localhost:3000',
-      'http://localhost:5173'
-    ],
-    methods: ["GET", "POST"],
-    credentials: true
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: false
   }
 });
 
-// Socket.io connection
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
-  
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-  });
+  socket.on('disconnect', () => console.log('User disconnected:', socket.id));
 });
 
-// Make io available to routes
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
-// ========================================
-// DATABASE CONNECTION
-// ========================================
+/* =====================================================
+   DATABASE
+===================================================== */
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('✅ MongoDB Connected'))
+  .catch(err => console.error('❌ MongoDB Error:', err.message));
 
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('✅ MongoDB Connected'))
-.catch(err => {
-  console.error('❌ MongoDB Connection Error:', err);
-});
-
-// ========================================
-// ADMIN SCHEMA (if not using separate model file)
-// ========================================
-
+/* =====================================================
+   ADMIN MODEL
+===================================================== */
 const adminSchema = new mongoose.Schema({
-  username: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  password: {
-    type: String,
-    required: true
-  },
-  role: {
-    type: String,
-    default: 'admin'
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  role: { type: String, default: 'admin' },
+  createdAt: { type: Date, default: Date.now }
 });
 
 const Admin = mongoose.model('Admin', adminSchema);
 
-// ========================================
-// INITIALIZE DEFAULT ADMIN (Run once)
-// ========================================
-
+/* =====================================================
+   INIT DEFAULT ADMIN (SAFE)
+===================================================== */
 const initializeAdmin = async () => {
+  if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD) {
+    console.warn('⚠️ Admin env vars missing, skipping admin init');
+    return;
+  }
+
   try {
-    const existingAdmin = await Admin.findOne({ 
-      username: process.env.ADMIN_USERNAME 
+    const exists = await Admin.findOne({ username: process.env.ADMIN_USERNAME });
+    if (exists) return console.log('✅ Admin already exists');
+
+    const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
+    await Admin.create({
+      username: process.env.ADMIN_USERNAME,
+      password: hashedPassword
     });
-    
-    if (!existingAdmin) {
-      const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
-      
-      const newAdmin = new Admin({
-        username: process.env.ADMIN_USERNAME,
-        password: hashedPassword,
-        role: 'admin'
-      });
-      
-      await newAdmin.save();
-      console.log('✅ Default admin created');
-    } else {
-      console.log('✅ Admin already exists');
-    }
-  } catch (error) {
-    console.error('❌ Error initializing admin:', error);
+
+    console.log('✅ Default admin created');
+  } catch (err) {
+    console.error('❌ Admin init error:', err.message);
   }
 };
 
 initializeAdmin();
 
-// ========================================
-// AUTHENTICATION MIDDLEWARE
-// ========================================
-
+/* =====================================================
+   AUTH MIDDLEWARE
+===================================================== */
 const verifyToken = (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        message: 'No token provided'
-      });
+    const auth = req.headers.authorization;
+    if (!auth?.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: 'No token' });
     }
-    
-    const token = authHeader.split(' ')[1];
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+
+    req.user = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
     next();
-    
-  } catch (error) {
-    console.error('Token verification error:', error);
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid or expired token'
-    });
+  } catch {
+    return res.status(401).json({ success: false, message: 'Invalid token' });
   }
 };
 
-// ========================================
-// ROUTES
-// ========================================
-
-// Health Check Route
+/* =====================================================
+   ROUTES
+===================================================== */
 app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Server is running',
-    timestamp: new Date().toISOString(),
-    port: PORT
-  });
+  res.json({ success: true, message: 'Server running' });
 });
 
-// Admin Login Route
 app.post('/api/admin/login', async (req, res) => {
   try {
-    console.log('Login attempt:', req.body);
-    
     const { username, password } = req.body;
-    
-    // Validation
-    if (!username || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Username and password are required'
-      });
-    }
-    
-    // Find admin
+    if (!username || !password)
+      return res.status(400).json({ success: false, message: 'Missing fields' });
+
     const admin = await Admin.findOne({ username });
-    
-    if (!admin) {
-      console.log('Admin not found:', username);
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-    
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, admin.password);
-    
-    if (!isPasswordValid) {
-      console.log('Invalid password for:', username);
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-    
-    // Generate JWT token
+    if (!admin || !(await bcrypt.compare(password, admin.password)))
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+
     const token = jwt.sign(
-      {
-        id: admin._id,
-        username: admin.username,
-        role: admin.role
-      },
+      { id: admin._id, role: admin.role },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
-    
-    console.log('✅ Login successful for:', username);
-    
-    // Send response
+
     res.json({
       success: true,
-      message: 'Login successful',
-      token: token,
-      user: {
-        id: admin._id,
-        username: admin.username,
-        role: admin.role
-      }
+      token,
+      user: { id: admin._id, username: admin.username, role: admin.role }
     });
-    
-  } catch (error) {
-    console.error('❌ Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error during login',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// Routes
 app.use('/api/events', eventRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/checkins', checkinRoutes);
@@ -291,43 +189,28 @@ app.use('/api/consultations', consultationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-// ========================================
-// ERROR HANDLING
-// ========================================
+/* =====================================================
+   ERROR HANDLING
+===================================================== */
+app.use((req, res) =>
+  res.status(404).json({ success: false, message: 'Route not found' })
+);
 
-// 404 Handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found',
-    path: req.url
-  });
-});
-
-// Global Error Handler
 app.use((err, req, res, next) => {
   console.error('Global error:', err);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
-  });
+  res.status(500).json({ success: false, message: 'Internal server error' });
 });
 
-// ========================================
-// START SERVER
-// ========================================
-
+/* =====================================================
+   START SERVER
+===================================================== */
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 Backend URL: http://localhost:${PORT}`);
-  console.log(`🌐 Client URL: ${process.env.CLIENT_URL}`);
-  console.log(`🔒 JWT Secret: ${process.env.JWT_SECRET ? 'Set ✅' : 'Not Set ❌'}`);
-  console.log(`💾 MongoDB: ${process.env.MONGODB_URI ? 'Connected ✅' : 'Not Connected ❌'}`);
 });
 
-// Handle unhandled rejections
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
-  process.exit(1);
+/* =====================================================
+   SAFETY
+===================================================== */
+process.on('unhandledRejection', err => {
+  console.error('Unhandled rejection:', err);
 });
