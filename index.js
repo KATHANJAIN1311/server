@@ -29,8 +29,8 @@ app.set('trust proxy', 1);
 const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
-      'https://creativeeeraevents.in',
-      'https://www.creativeeeraevents.in',
+      'https://creativeeraevents.in',
+      'https://www.creativeeraevents.in',
       'http://localhost:3000',
       'http://localhost:5173',
       'http://127.0.0.1:3000'
@@ -74,8 +74,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const io = socketIo(server, {
   cors: {
     origin: [
-      'https://creativeeeraevents.in',
-      'https://www.creativeeeraevents.in',
+      'https://creativeeraevents.in',
+      'https://www.creativeeraevents.in',
       'http://localhost:3000',
       'http://localhost:5173'
     ],
