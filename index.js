@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const session = require('express-session');
+const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -19,59 +21,37 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5002;
 
-/* =====================================================
-   TRUST PROXY (Hostinger / Reverse Proxy)
-===================================================== */
+// Trust proxy (REQUIRED for Hostinger)
 app.set('trust proxy', 1);
 
-/* =====================================================
-   CORS CONFIG (FIXED)
-===================================================== */
-const allowedOrigins = [
-  'https://creativeeraevents.in',
-  'https://www.creativeeraevents.in',
-  'http://localhost:3000',
-  'http://localhost:5173'
-];
-
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); 
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'), false);
-  },
-  credentials: false, 
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: "https://creativeeraevents.in",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-app.options('*', (req, res) => res.sendStatus(204));
+app.options("*", cors());
 
-/* =====================================================
-   BODY PARSER
-===================================================== */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-/* =====================================================
-   LOGGING (SAFE)
-===================================================== */
+// Logging Middleware (for debugging)
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  console.log('Origin:', req.headers.origin || 'N/A');
+  console.log('Origin:', req.headers.origin);
   next();
 });
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-/* =====================================================
-   SOCKET.IO CONFIG
-===================================================== */
+// Socket.io configuration
 const io = socketIo(server, {
   cors: {
-    origin: allowedOrigins,
-    methods: ['GET', 'POST'],
-    credentials: false
+    origin: "https://creativeeraevents.in",
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
