@@ -25,28 +25,43 @@ const PORT = process.env.PORT || 3001;
 // Trust proxy (REQUIRED for Hostinger)
 app.set('trust proxy', 1);
 
-// CORS Configuration - MUST BE BEFORE ROUTES
+// CORS Configuration - MUST BE FIRST
 const corsOptions = {
-  origin: [
-    'https://creativeeeraevents.in',
-    'https://www.creativeeeraevents.in',
-    'http://localhost:3000',
-    'http://localhost:5173'
-  ],
-  credentials: false, // Set to false
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'https://creativeeeraevents.in',
+      'https://www.creativeeeraevents.in',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:3000'
+    ];
+    
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  optionsSuccessStatus: 204
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 };
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
+// THEN middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
 
-// Logging Middleware (for debugging)
+// Logging Middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   console.log('Origin:', req.headers.origin);
@@ -129,9 +144,6 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-/* =====================================================
-   ROUTES
-===================================================== */
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Server running' });
 });
@@ -163,6 +175,7 @@ app.post('/api/admin/login', async (req, res) => {
   }
 });
 
+// THEN routes
 app.use('/api/events', eventRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/checkins', checkinRoutes);

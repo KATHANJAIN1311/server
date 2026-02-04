@@ -32,6 +32,12 @@ const upload = multer({
 // Get all events
 router.get('/', async (req, res) => {
   try {
+    // Add CORS headers manually (backup)
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
+    
     const events = await Event.find({ isActive: true }).sort({ date: 1 });
     
     // Add registration counts to each event
@@ -48,10 +54,27 @@ router.get('/', async (req, res) => {
       })
     );
     
-    res.json(eventsWithCounts);
+    res.status(200).json({
+      success: true,
+      events: eventsWithCounts
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching events:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching events',
+      error: error.message
+    });
   }
+});
+
+// Handle OPTIONS preflight
+router.options('/', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
+  res.sendStatus(200);
 });
 
 // Get event by ID
