@@ -34,17 +34,22 @@ const io = socketIo(server, {
   }
 });
 
-// CORS Configuration (MUST come before CSRF)
-app.use(cors({
+// ✅ CORRECT CORS Configuration
+const corsOptions = {
   origin: [
-    'https://www.creativeeraevents.in',
     'https://creativeeraevents.in',
-    'http://localhost:3000' // for local development
+    'https://www.creativeeraevents.in',
+    'http://localhost:3000', // for local development
+    'http://localhost:5173'  // if using Vite
   ],
-  credentials: true,
+  credentials: true, // Important for cookies/tokens
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token'],
+  exposedHeaders: ['Authorization'],
+  maxAge: 86400 // 24 hours
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
