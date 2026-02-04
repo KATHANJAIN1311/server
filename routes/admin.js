@@ -1,19 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-const csurf = require('csurf');
+const bcrypt = require('bcrypt');
 const Admin = require('../models/Admin');
 const Event = require('../models/Event');
 const Registration = require('../models/Registration');
 const Checkin = require('../models/Checkin');
+const { generateToken, verifyToken } = require('../middleware/auth');
 
-const csrfProtection = csurf({
-  cookie: {
-    httpOnly: true,
-    sameSite: "none",
-    secure: true
-  }
-});
 const validateLoginInput = (req, res, next) => {
   const { username, password } = req.body;
   
@@ -28,68 +21,54 @@ const validateLoginInput = (req, res, next) => {
   next();
 };
 
-
-// Admin login
-router.post('/login', csrfProtection, validateLoginInput, async (req, res) => {
+// ✅ Login Route Example
+router.post('/login', validateLoginInput, async (req, res) => {
   try {
     const { username, password } = req.body;
     
-    // Create default admin if it doesn't exist
-    let admin = await Admin.findOne({ username });
-    if (!admin && username === 'admin') {
-    admin = new Admin({ 
-  username: process.env.ADMIN_USERNAME || 'admin', 
-  password: process.env.ADMIN_PASSWORD || 'defaultPassword123' 
-});
-      await admin.save();
+    // Validate credentials
+    const admin = await Admin.findOne({ username });
+    if (!admin) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid credentials' 
+      });
     }
     
-    // Check credentials
-    if (!admin || admin.password !== password) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    // Check password (plain text comparison for now)
+    if (admin.password !== password) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid credentials' 
+      });
     }
     
-    if (!process.env.JWT_SECRET) {
-      return res.status(500).json({ message: 'Server configuration error' });
-    }
+    // Generate token
+    const token = generateToken(admin._id, 'admin');
     
-    const token = jwt.sign(
-      { username: admin.username },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-    
-    res.json({ 
-      token, 
-      admin: { username: admin.username },
-      csrfToken: req.csrfToken()
+    // Send response
+    res.json({
+      success: true,
+      token: token,
+      user: {
+        id: admin._id,
+        username: admin.username,
+        role: 'admin'
+      }
     });
+    
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Login failed' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
   }
 });
-
-// Auth middleware
-const authenticateAdmin = (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
-  
-  if (!token) {
-    return res.status(401).json({ message: 'Access denied' });
-  }
-  
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.admin = decoded;
-    next();
-  } catch (error) {
-    res.status(401).json({ message: 'Invalid token' });
-  }
-};
 
 
 // Get dashboard statistics
-router.get('/dashboard/:eventId', authenticateAdmin, csrfProtection, async (req, res) => {
+router.get('/dashboard/:eventId', verifyToken, async (req, res) => {
   try {
     const { eventId } = req.params;
     
@@ -164,7 +143,7 @@ router.get('/dashboard/:eventId', authenticateAdmin, csrfProtection, async (req,
 });
 
 // Export registrations data
-router.get('/export/registrations/:eventId', authenticateAdmin, csrfProtection, async (req, res) => {
+router.get('/export/registrations/:eventId', verifyToken, async (req, res) => {
   try {
     const { eventId } = req.params;
     
@@ -195,7 +174,7 @@ router.get('/export/registrations/:eventId', authenticateAdmin, csrfProtection, 
 });
 
 // Export check-ins data
-router.get('/export/checkins/:eventId', authenticateAdmin, csrfProtection, async (req, res) => {
+router.get('/export/checkins/:eventId', verifyToken, async (req, res) => {
   try {
     const { eventId } = req.params;
     
