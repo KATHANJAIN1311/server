@@ -19,7 +19,7 @@ const bookingRoutes = require('./routes/bookings');
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 3000;
 
 // Trust proxy (REQUIRED for Hostinger)
 app.set('trust proxy', 1);
