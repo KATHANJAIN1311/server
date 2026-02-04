@@ -151,12 +151,21 @@ app.get('/api/health', (req, res) => {
 app.post('/api/admin/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password)
-      return res.status(400).json({ success: false, message: 'Missing fields' });
+    
+    if (!username || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Username and password are required' 
+      });
+    }
 
     const admin = await Admin.findOne({ username });
-    if (!admin || !(await bcrypt.compare(password, admin.password)))
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    if (!admin || !(await bcrypt.compare(password, admin.password))) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid credentials' 
+      });
+    }
 
     const token = jwt.sign(
       { id: admin._id, role: admin.role },
@@ -164,14 +173,22 @@ app.post('/api/admin/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    res.json({
+    return res.status(200).json({
       success: true,
       token,
-      user: { id: admin._id, username: admin.username, role: admin.role }
+      user: { 
+        id: admin._id, 
+        username: admin.username, 
+        role: admin.role 
+      }
     });
+    
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
   }
 });
 
