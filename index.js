@@ -27,33 +27,19 @@ app.set('trust proxy', 1);
 
 // CORS Configuration - MUST BE BEFORE ROUTES
 const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'https://creativeeeraevents.in',
-      'https://www.creativeeeraevents.in',
-      'http://localhost:3000',
-      'http://localhost:5173'
-    ];
-    
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(null, true); // For testing - change to callback(new Error('Not allowed by CORS')) in production
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  exposedHeaders: ['Set-Cookie'],
-  optionsSuccessStatus: 200
+  origin: [
+    'https://creativeeeraevents.in',
+    'https://www.creativeeeraevents.in',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ],
+  credentials: false, // Set to false
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
-
-// Handle preflight requests
 app.options('*', cors(corsOptions));
 
 app.use(express.json());
@@ -78,8 +64,7 @@ const io = socketIo(server, {
       'http://localhost:3000',
       'http://localhost:5173'
     ],
-    methods: ["GET", "POST"],
-    credentials: true
+    methods: ["GET", "POST"]
   }
 });
 
