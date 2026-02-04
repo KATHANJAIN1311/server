@@ -16,22 +16,45 @@ const checkinRoutes = require('./routes/checkins');
 const consultationRoutes = require('./routes/consultations');
 const adminRoutes = require('./routes/admin');
 const bookingRoutes = require('./routes/bookings');
+const Admin = require('./models/Admin');
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Trust proxy (REQUIRED for Hostinger)
 app.set('trust proxy', 1);
 
-app.use(cors({
-  origin: "https://creativeeraevents.in",
+// CORS Configuration - MUST BE BEFORE ROUTES
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'https://creativeeeraevents.in',
+      'https://www.creativeeeraevents.in',
+      'http://localhost:3000',
+      'http://localhost:5173'
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(null, true); // For testing - change to callback(new Error('Not allowed by CORS')) in production
+    }
+  },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200
+};
 
-app.options("*", cors());
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -49,7 +72,12 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Socket.io configuration
 const io = socketIo(server, {
   cors: {
-    origin: "https://creativeeraevents.in",
+    origin: [
+      'https://creativeeeraevents.in',
+      'https://www.creativeeeraevents.in',
+      'http://localhost:3000',
+      'http://localhost:5173'
+    ],
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -71,18 +99,6 @@ app.use((req, res, next) => {
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ MongoDB Connected'))
   .catch(err => console.error('❌ MongoDB Error:', err.message));
-
-/* =====================================================
-   ADMIN MODEL
-===================================================== */
-const adminSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  role: { type: String, default: 'admin' },
-  createdAt: { type: Date, default: Date.now }
-});
-
-const Admin = mongoose.model('Admin', adminSchema);
 
 /* =====================================================
    INIT DEFAULT ADMIN (SAFE)
