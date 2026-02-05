@@ -36,6 +36,12 @@ const verifyToken = (req, res, next) => {
    ADMIN LOGIN - NOTE: Also handled in index.js
    This route is here as backup
 ===================================================== */
+router.get('/login', (req, res) => {
+  res.json({ 
+    message: "This is the admin login endpoint. Please send a POST request with username and password." 
+  });
+});
+
 router.post('/login', async (req, res) => {
   try {
     console.log('📝 Admin login attempt:', req.body.username);
