@@ -1,30 +1,74 @@
-// models/Registration.js
-// models/Registration.js
 const mongoose = require('mongoose');
-const { v4: uuidv4 } = require('uuid');
 
 const registrationSchema = new mongoose.Schema({
-  registrationId: { 
-    type: String, 
-    unique: true,
-    default: () => uuidv4().substring(0, 8).toUpperCase()
+  registrationId: {
+    type: String,
+    required: true,
+    unique: true
   },
-  eventId: { type: String, required: true, ref: 'Event' },
-  name: { type: String, required: true },
-  email: { type: String, required: true },
-  phoneNumber: { type: String, required: true },
-  qrCode: { type: String, required: true },
-  registrationType: { type: String, enum: ['online', 'kiosk'], default: 'online' },
-  ticketTier: { type: String, default: '' },
-  ticketPrice: { type: Number, default: 0 },
-  organization: { type: String, default: '' },
-  designation: { type: String, default: '' },
-  isCheckedIn: { type: Boolean, default: false },
-  checkedInAt: { type: Date }
+  eventId: {
+    type: String,
+    required: true,
+    ref: 'Event'
+  },
+  name: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true
+  },
+  phone: {
+    type: String,
+    required: true
+  },
+  company: {
+    type: String,
+    default: ''
+  },
+  ticketTier: {
+    type: String,
+    enum: ['silver', 'gold', 'platinum'],
+    default: 'silver'
+  },
+  numberOfTickets: {
+    type: Number,
+    default: 1
+  },
+  totalAmount: {
+    type: Number,
+    default: 0
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'confirmed', 'cancelled', 'checkedIn'],
+    default: 'pending'
+  },
+  isCheckedIn: {
+    type: Boolean,
+    default: false
+  },
+  checkedInAt: {
+    type: Date
+  },
+  qrCode: {
+    type: String
+  },
+  paymentId: {
+    type: String
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'completed', 'failed'],
+    default: 'pending'
+  }
 }, {
   timestamps: true
 });
 
-const Registration = mongoose.model('Registration', registrationSchema);
+// Index for faster queries
+registrationSchema.index({ eventId: 1, email: 1 });
+registrationSchema.index({ registrationId: 1 });
 
-module.exports = Registration;
+module.exports = mongoose.model('Registration', registrationSchema);

@@ -29,22 +29,58 @@ const upload = multer({
   }
 });
 
-// Get all events
+/* =====================================================
+   CRITICAL: Handle CORS for all routes
+===================================================== */
+router.use((req, res, next) => {
+  // Set CORS headers explicitly for events route
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://creativeeraevents.in',
+    'https://www.creativeeraevents.in',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ];
+  
+  if (allowedOrigins.includes(origin) || !origin) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  } else {
+    res.header('Access-Control-Allow-Origin', origin); // Allow anyway
+  }
+  
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie, X-CSRF-Token');
+  
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
+
+/* =====================================================
+   GET ALL EVENTS
+===================================================== */
 router.get('/', async (req, res) => {
   try {
-    // Add CORS headers manually (backup)
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
+    console.log('📋 Fetching all events...');
     
     const events = await Event.find({ isActive: true }).sort({ date: 1 });
+    
+    console.log(`✅ Found ${events.length} events`);
     
     // Add registration counts to each event
     const eventsWithCounts = await Promise.all(
       events.map(async (event) => {
-        const registrationCount = await Registration.countDocuments({ eventId: event.eventId });
-        const checkedInCount = await Registration.countDocuments({ eventId: event.eventId, isCheckedIn: true });
+        const registrationCount = await Registration.countDocuments({ 
+          eventId: event.eventId 
+        });
+        const checkedInCount = await Registration.countDocuments({ 
+          eventId: event.eventId, 
+          isCheckedIn: true 
+        });
         
         return {
           ...event.toObject(),
@@ -54,13 +90,16 @@ router.get('/', async (req, res) => {
       })
     );
     
-    res.status(200).json({
+    // Return in the format expected by frontend
+    return res.status(200).json({
       success: true,
-      events: eventsWithCounts
+      data: eventsWithCounts,
+      count: eventsWithCounts.length
     });
+    
   } catch (error) {
-    console.error('Error fetching events:', error);
-    res.status(500).json({
+    console.error('❌ Error fetching events:', error);
+    return res.status(500).json({
       success: false,
       message: 'Error fetching events',
       error: error.message
@@ -68,45 +107,68 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Handle OPTIONS preflight
-router.options('/', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
-  res.sendStatus(200);
-});
-
-// Get event by ID
+/* =====================================================
+   GET EVENT BY ID
+===================================================== */
 router.get('/:id', async (req, res) => {
   try {
+    console.log('🔍 Fetching event:', req.params.id);
+    
     const event = await Event.findOne({ eventId: req.params.id });
+    
     if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Event not found' 
+      });
     }
     
-    const registrationCount = await Registration.countDocuments({ eventId: req.params.id });
-    const checkedInCount = await Registration.countDocuments({ eventId: req.params.id, isCheckedIn: true });
+    const registrationCount = await Registration.countDocuments({ 
+      eventId: req.params.id 
+    });
+    const checkedInCount = await Registration.countDocuments({ 
+      eventId: req.params.id, 
+      isCheckedIn: true 
+    });
     
     // Get booked seats by tier
-    const silverBooked = await Registration.countDocuments({ eventId: req.params.id, ticketTier: 'silver' });
-    const platinumBooked = await Registration.countDocuments({ eventId: req.params.id, ticketTier: 'platinum' });
-    const goldBooked = await Registration.countDocuments({ eventId: req.params.id, ticketTier: 'gold' });
-    
-    res.json({
-      ...event.toObject(),
-      registrationCount,
-      checkedInCount,
-      silverBooked,
-      platinumBooked,
-      goldBooked
+    const silverBooked = await Registration.countDocuments({ 
+      eventId: req.params.id, 
+      ticketTier: 'silver' 
     });
+    const platinumBooked = await Registration.countDocuments({ 
+      eventId: req.params.id, 
+      ticketTier: 'platinum' 
+    });
+    const goldBooked = await Registration.countDocuments({ 
+      eventId: req.params.id, 
+      ticketTier: 'gold' 
+    });
+    
+    return res.json({
+      success: true,
+      data: {
+        ...event.toObject(),
+        registrationCount,
+        checkedInCount,
+        silverBooked,
+        platinumBooked,
+        goldBooked
+      }
+    });
+    
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('❌ Error fetching event:', error);
+    return res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
   }
 });
 
-// Create new event
+/* =====================================================
+   CREATE NEW EVENT
+===================================================== */
 router.post('/', (req, res) => {
   const contentType = req.headers['content-type'];
   
@@ -115,10 +177,13 @@ router.post('/', (req, res) => {
     upload.single('image')(req, res, async (err) => {
       if (err) {
         console.error('Multer error:', err.message);
-        return res.status(400).json({ message: err.message });
+        return res.status(400).json({ 
+          success: false,
+          message: err.message 
+        });
       }
       
-      console.log('File uploaded:', req.file);
+      console.log('📁 File uploaded:', req.file);
       
       try {
         const eventId = uuidv4();
@@ -142,15 +207,29 @@ router.post('/', (req, res) => {
         
         // Validate required fields
         if (!eventData.name || !eventData.date || !eventData.time || !eventData.venue || !eventData.description) {
-          return res.status(400).json({ message: 'Missing required fields: name, date, time, venue, description' });
+          return res.status(400).json({ 
+            success: false,
+            message: 'Missing required fields: name, date, time, venue, description' 
+          });
         }
         
         const event = new Event(eventData);
         const savedEvent = await event.save();
-        res.status(201).json(savedEvent);
+        
+        console.log('✅ Event created:', savedEvent.eventId);
+        
+        return res.status(201).json({
+          success: true,
+          data: savedEvent,
+          message: 'Event created successfully'
+        });
+        
       } catch (error) {
-        console.error('Event creation error:', error);
-        res.status(400).json({ message: error.message });
+        console.error('❌ Event creation error:', error);
+        return res.status(400).json({ 
+          success: false,
+          message: error.message 
+        });
       }
     });
   } else {
@@ -165,42 +244,78 @@ router.post('/', (req, res) => {
         
         // Validate required fields
         if (!eventData.name || !eventData.date || !eventData.time || !eventData.venue || !eventData.description) {
-          return res.status(400).json({ message: 'Missing required fields: name, date, time, venue, description' });
+          return res.status(400).json({ 
+            success: false,
+            message: 'Missing required fields: name, date, time, venue, description' 
+          });
         }
         
         const event = new Event(eventData);
         const savedEvent = await event.save();
-        res.status(201).json(savedEvent);
+        
+        console.log('✅ Event created:', savedEvent.eventId);
+        
+        return res.status(201).json({
+          success: true,
+          data: savedEvent,
+          message: 'Event created successfully'
+        });
+        
       } catch (error) {
-        console.error('Event creation error:', error);
-        res.status(400).json({ message: error.message });
+        console.error('❌ Event creation error:', error);
+        return res.status(400).json({ 
+          success: false,
+          message: error.message 
+        });
       }
     })();
   }
 });
 
-// Update event
+/* =====================================================
+   UPDATE EVENT
+===================================================== */
 router.put('/:id', async (req, res) => {
   try {
+    console.log('📝 Updating event:', req.params.id);
+    
     const event = await Event.findOneAndUpdate(
       { eventId: req.params.id },
       req.body,
-      { new: true }
+      { new: true, runValidators: true }
     );
     
     if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Event not found' 
+      });
     }
     
-    res.json(event);
+    console.log('✅ Event updated:', event.eventId);
+    
+    return res.json({
+      success: true,
+      data: event,
+      message: 'Event updated successfully'
+    });
+    
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error('❌ Error updating event:', error);
+    return res.status(400).json({ 
+      success: false,
+      message: error.message 
+    });
   }
 });
 
-// Delete event
+/* =====================================================
+   DELETE EVENT (SOFT DELETE)
+===================================================== */
 router.delete('/:id', async (req, res) => {
   try {
+    console.log('🗑️ Deleting event:', req.params.id);
+    
     const event = await Event.findOneAndUpdate(
       { eventId: req.params.id },
       { isActive: false },
@@ -208,12 +323,25 @@ router.delete('/:id', async (req, res) => {
     );
     
     if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Event not found' 
+      });
     }
     
-    res.json({ message: 'Event deleted successfully' });
+    console.log('✅ Event deleted:', event.eventId);
+    
+    return res.json({ 
+      success: true,
+      message: 'Event deleted successfully' 
+    });
+    
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('❌ Error deleting event:', error);
+    return res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
   }
 });
 
