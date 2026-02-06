@@ -8,14 +8,14 @@ module.exports = {
     max_memory_restart: '1G',
     env: {
       NODE_ENV: 'production',
-      PORT: 5002,
-      MONGODB_URI: "mongodb+srv://username:password@cluster.mongodb.net/database?appName=cluster",
-      JWT_SECRET: "your_jwt_secret_key_here",
-      CLIENT_URL: "https://yourdomain.com",
+      PORT: 3003,
+      MONGODB_URI: "mongodb+srv://abhiback14_db_user:CREATIVE@creative-era.kjruuxs.mongodb.net/event-registration?retryWrites=true&w=majority&appName=creative-era",
+      JWT_SECRET: "34f9eb65bb03a6862b13a6d3c4eb46965f55e7c8b17e68dce9de7bdb9904c84b027b5a581d0b3fb4287dd80377e6a0443aeeaa9a9f90c9d79ccea0522eec9341",
+      CLIENT_URL: "https://www.creativeeraevents.in",
       ADMIN_USERNAME: "admin",
-      ADMIN_PASSWORD: "your_secure_password",
-      EMAIL_USER: "your_email@gmail.com",
-      EMAIL_PASS: "your_app_password"
+      ADMIN_PASSWORD: "admin123",
+      EMAIL_USER: "kathanjain312@gmail.com",
+      EMAIL_PASS: "hjur xhna qoct nabh"
     }
   }]
 };
