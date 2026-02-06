@@ -40,8 +40,8 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    // Allow all origins in development
-    if (process.env.NODE_ENV !== 'production') {
+    // Always allow localhost for development
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
       return callback(null, true);
     }
     
