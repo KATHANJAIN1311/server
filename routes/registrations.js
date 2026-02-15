@@ -162,6 +162,41 @@ router.post('/', async (req, res) => {
 });
 
 /* =====================================================
+   SEARCH REGISTRATIONS BY EMAIL
+===================================================== */
+router.get('/search', async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email parameter is required'
+      });
+    }
+
+    console.log('🔍 Searching registrations for:', email);
+
+    const registrations = await Registration.find({ 
+      email: { $regex: email, $options: 'i' } 
+    }).sort({ createdAt: -1 });
+
+    return res.json({
+      success: true,
+      data: registrations,
+      count: registrations.length
+    });
+
+  } catch (error) {
+    console.error('❌ Search error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error searching registrations'
+    });
+  }
+});
+
+/* =====================================================
    GET REGISTRATION BY ID
 ===================================================== */
 router.get('/:id', async (req, res) => {
@@ -228,41 +263,6 @@ router.get('/event/:eventId', async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Error fetching registrations'
-    });
-  }
-});
-
-/* =====================================================
-   SEARCH REGISTRATIONS BY EMAIL
-===================================================== */
-router.get('/search', async (req, res) => {
-  try {
-    const { email } = req.query;
-
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email parameter is required'
-      });
-    }
-
-    console.log('🔍 Searching registrations for:', email);
-
-    const registrations = await Registration.find({ 
-      email: { $regex: email, $options: 'i' } 
-    }).sort({ createdAt: -1 });
-
-    return res.json({
-      success: true,
-      data: registrations,
-      count: registrations.length
-    });
-
-  } catch (error) {
-    console.error('❌ Search error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error searching registrations'
     });
   }
 });

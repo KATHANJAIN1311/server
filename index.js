@@ -66,9 +66,19 @@ app.options('*', cors(corsOptions));
 
 // Manual CORS headers as backup
 app.use((req, res, next) => {
-  // res.header('Access-Control-Allow-Origin', 'https://creativeeraevents.in');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token');
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://creativeeraevents.in',
+    'https://www.creativeeraevents.in'
+  ];
+  
+  if (origin && (allowedOrigins.includes(origin) || origin.includes('localhost'))) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token, X-Requested-With, Accept, Cookie');
   
   // Handle preflight
   if (req.method === 'OPTIONS') {
