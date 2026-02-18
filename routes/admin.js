@@ -6,6 +6,22 @@ const Admin = require('../models/Admin');
 const Event = require('../models/Event');
 const Registration = require('../models/Registration');
 
+// CORS middleware
+router.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token, X-Requested-With, Accept, Cookie');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 /* =====================================================
    AUTHENTICATION MIDDLEWARE
 ===================================================== */
