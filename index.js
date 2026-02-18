@@ -104,8 +104,26 @@ app.use((req, res, next) => {
   next();
 });
 
-// Static files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Static files with error handling
+const uploadsPath = path.join(__dirname, 'uploads');
+console.log('📁 Uploads directory:', uploadsPath);
+
+app.use('/uploads', (req, res, next) => {
+  console.log('📷 Image request:', req.url);
+  next();
+}, express.static(uploadsPath, {
+  setHeaders: (res, filePath) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cache-Control', 'public, max-age=31536000');
+  },
+  fallthrough: true
+}));
+
+// Handle missing images
+app.use('/uploads', (req, res) => {
+  console.log('❌ Image not found:', req.url);
+  res.status(404).json({ success: false, message: 'Image not found' });
+});
 
 /* =====================================================
    SOCKET.IO
