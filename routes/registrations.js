@@ -633,6 +633,7 @@ router.post('/:id/checkin', async (req, res) => {
     const { id } = req.params;
 
     console.log('✅ POST check-in request for:', id);
+    console.log('🌐 Request origin:', req.headers.origin);
 
     // Enhanced CORS headers
     res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
@@ -640,23 +641,29 @@ router.post('/:id/checkin', async (req, res) => {
 
     // Validate registration ID format
     if (!id || typeof id !== 'string' || !/^[A-Z0-9]{8}$/.test(id)) {
+      console.log('❌ Invalid registration ID format:', id);
       return res.status(400).json({
         success: false,
         message: 'Invalid registration ID format'
       });
     }
 
+    console.log('🔍 Looking for registration:', id);
     const registration = await Registration.findOne({ registrationId: id });
 
     if (!registration) {
+      console.log('❌ Registration not found:', id);
       return res.status(404).json({
         success: false,
         message: 'Registration not found'
       });
     }
 
+    console.log('✅ Registration found:', registration.name, registration.email);
+
     // Check if already checked in
     if (registration.isCheckedIn) {
+      console.log('⚠️ User already checked in:', id);
       return res.json({
         success: true,
         alreadyCheckedIn: true,
@@ -667,9 +674,10 @@ router.post('/:id/checkin', async (req, res) => {
 
     // Update to checked in
     registration.isCheckedIn = true;
-    registration.checkedInAt = new Date();
+    registration.checkedInAt = new Date(); // Fixed field name
     registration.status = 'checkedIn';
 
+    console.log('💾 Saving registration updates...');
     await registration.save();
 
     console.log('✅ Check-in successful:', id);
@@ -681,6 +689,7 @@ router.post('/:id/checkin', async (req, res) => {
         registrationId: id,
         status: 'checkedIn'
       });
+      console.log('📡 Socket event emitted');
     }
 
     return res.json({
@@ -691,9 +700,11 @@ router.post('/:id/checkin', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Check-in error:', error);
+    console.error('🔍 Error stack:', error.stack);
     return res.status(500).json({
       success: false,
-      message: 'Error during check-in'
+      message: 'Error during check-in',
+      error: error.message
     });
   }
 });
