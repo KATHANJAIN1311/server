@@ -470,12 +470,14 @@ router.get('/event/:eventId', async (req, res) => {
 });
 
 /* =====================================================
-   UPDATE REGISTRATION STATUS (CHECK-IN)
+   UPDATE REGISTRATION STATUS (CHECK-IN) - ENHANCED
 ===================================================== */
+// Enhanced CORS for status endpoint
 router.options('/:id/status', (req, res) => {
+  console.log('🔧 CORS preflight for status update:', req.params.id);
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Max-Age', '86400');
   res.status(200).end();
@@ -486,10 +488,17 @@ router.patch('/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    console.log('📝 Updating registration status:', id, status);
+    console.log('📝 PATCH request received for registration:', id, 'status:', status);
+    console.log('🌐 Request origin:', req.headers.origin);
+    console.log('📋 Request headers:', req.headers);
+
+    // Enhanced CORS headers
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
 
     // Validate registration ID format
     if (!id || typeof id !== 'string' || !/^[A-Z0-9]{8}$/.test(id)) {
+      console.log('❌ Invalid registration ID format:', id);
       return res.status(400).json({
         success: false,
         message: 'Invalid registration ID format'
@@ -499,24 +508,29 @@ router.patch('/:id/status', async (req, res) => {
     const registration = await Registration.findOne({ registrationId: id });
 
     if (!registration) {
+      console.log('❌ Registration not found:', id);
       return res.status(404).json({
         success: false,
         message: 'Registration not found'
       });
     }
 
+    console.log('✅ Registration found:', registration.name, registration.email);
+
     // Update status
     if (status === 'checkedIn') {
       registration.isCheckedIn = true;
       registration.checkedInAt = new Date();
       registration.status = 'checkedIn';
+      console.log('✅ Setting check-in status');
     } else {
       registration.status = status;
+      console.log('✅ Setting status to:', status);
     }
 
     await registration.save();
 
-    console.log('✅ Registration updated:', id);
+    console.log('✅ Registration updated successfully:', id);
 
     // Emit socket event
     if (req.io) {
@@ -525,6 +539,7 @@ router.patch('/:id/status', async (req, res) => {
         registrationId: id,
         status
       });
+      console.log('📡 Socket event emitted');
     }
 
     return res.json({
@@ -534,10 +549,12 @@ router.patch('/:id/status', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Update error:', error);
+    console.error('❌ PATCH Update error:', error);
+    console.error('🔍 Error stack:', error.stack);
     return res.status(500).json({
       success: false,
-      message: 'Error updating registration'
+      message: 'Error updating registration',
+      error: error.message
     });
   }
 });
@@ -548,7 +565,11 @@ router.put('/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    console.log('📝 Updating registration status (PUT):', id, status);
+    console.log('📝 PUT request for registration status:', id, status);
+
+    // Enhanced CORS headers
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
 
     // Validate registration ID format
     if (!id || typeof id !== 'string' || !/^[A-Z0-9]{8}$/.test(id)) {
@@ -578,7 +599,7 @@ router.put('/:id/status', async (req, res) => {
 
     await registration.save();
 
-    console.log('✅ Registration updated:', id);
+    console.log('✅ Registration updated (PUT):', id);
 
     // Emit socket event
     if (req.io) {
@@ -596,10 +617,83 @@ router.put('/:id/status', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Update error:', error);
+    console.error('❌ PUT Update error:', error);
     return res.status(500).json({
       success: false,
       message: 'Error updating registration'
+    });
+  }
+});
+
+/* =====================================================
+   SIMPLE CHECK-IN ENDPOINT (POST Alternative)
+===================================================== */
+router.post('/:id/checkin', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log('✅ POST check-in request for:', id);
+
+    // Enhanced CORS headers
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+    // Validate registration ID format
+    if (!id || typeof id !== 'string' || !/^[A-Z0-9]{8}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid registration ID format'
+      });
+    }
+
+    const registration = await Registration.findOne({ registrationId: id });
+
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Registration not found'
+      });
+    }
+
+    // Check if already checked in
+    if (registration.isCheckedIn) {
+      return res.json({
+        success: true,
+        alreadyCheckedIn: true,
+        message: 'User already checked in',
+        data: registration
+      });
+    }
+
+    // Update to checked in
+    registration.isCheckedIn = true;
+    registration.checkedInAt = new Date();
+    registration.status = 'checkedIn';
+
+    await registration.save();
+
+    console.log('✅ Check-in successful:', id);
+
+    // Emit socket event
+    if (req.io) {
+      req.io.emit('registrationUpdate', {
+        eventId: registration.eventId,
+        registrationId: id,
+        status: 'checkedIn'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Check-in successful',
+      data: registration
+    });
+
+  } catch (error) {
+    console.error('❌ Check-in error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error during check-in'
     });
   }
 });
