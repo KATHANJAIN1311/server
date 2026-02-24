@@ -106,13 +106,8 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // Generate QR code
-    const qrCodeData = JSON.stringify({
-      registrationId,
-      eventId,
-      name,
-      email
-    });
+    // Generate QR code in format: registrationId|eventId
+    const qrCodeData = `${registrationId}|${eventId}`;
 
     const qrCode = await QRCode.toDataURL(qrCodeData);
 
