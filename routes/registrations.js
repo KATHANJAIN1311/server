@@ -162,6 +162,27 @@ router.post('/', async (req, res) => {
 });
 
 /* =====================================================
+   GET ALL REGISTRATIONS
+===================================================== */
+router.get('/', async (req, res) => {
+  try {
+    console.log('📋 Fetching all registrations');
+    const registrations = await Registration.find().sort({ createdAt: -1 });
+    return res.json({
+      success: true,
+      data: registrations,
+      count: registrations.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching registrations:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching registrations'
+    });
+  }
+});
+
+/* =====================================================
    SEARCH REGISTRATIONS BY EMAIL
 ===================================================== */
 router.get('/search', async (req, res) => {
