@@ -356,6 +356,68 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+// PUT route as fallback for PATCH
+router.put('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    console.log('📝 Updating registration status (PUT):', id, status);
+
+    // Validate registration ID format
+    if (!id || typeof id !== 'string' || !/^[A-Z0-9]{8}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid registration ID format'
+      });
+    }
+
+    const registration = await Registration.findOne({ registrationId: id });
+
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Registration not found'
+      });
+    }
+
+    // Update status
+    if (status === 'checkedIn') {
+      registration.isCheckedIn = true;
+      registration.checkedInAt = new Date();
+      registration.status = 'checkedIn';
+    } else {
+      registration.status = status;
+    }
+
+    await registration.save();
+
+    console.log('✅ Registration updated:', id);
+
+    // Emit socket event
+    if (req.io) {
+      req.io.emit('registrationUpdate', {
+        eventId: registration.eventId,
+        registrationId: id,
+        status
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Registration updated successfully',
+      data: registration
+    });
+
+  } catch (error) {
+    console.error('❌ Update error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error updating registration'
+    });
+  }
+});
+
 /* =====================================================
    DELETE REGISTRATION
 ===================================================== */
