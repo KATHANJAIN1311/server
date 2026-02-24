@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
+const nodemailer = require('nodemailer');
 const Registration = require('../models/Registration');
 const Event = require('../models/Event');
+const { generateRegistrationConfirmationEmail } = require('../utils/emailTemplate');
 
 /* =====================================================
-   HELPER FUNCTION: Generate unique registration ID
+   HELPER FUNCTIONS
 ===================================================== */
 const generateRegistrationId = () => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -15,6 +17,22 @@ const generateRegistrationId = () => {
     id += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return id;
+};
+
+const generateBookingPassword = () => {
+  const length = Math.floor(Math.random() * 3) + 4; // 4-6 digits
+  return String(Math.floor(Math.random() * (Math.pow(10, length) - Math.pow(10, length - 1))) + Math.pow(10, length - 1));
+};
+
+// Email transporter setup
+const createEmailTransporter = () => {
+  return nodemailer.createTransporter({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    }
+  });
 };
 
 /* =====================================================
@@ -111,6 +129,9 @@ router.post('/', async (req, res) => {
 
     const qrCode = await QRCode.toDataURL(qrCodeData);
 
+    // Generate booking password
+    const bookingPassword = generateBookingPassword();
+
     // Create registration
     const registration = new Registration({
       registrationId,
@@ -123,6 +144,7 @@ router.post('/', async (req, res) => {
       numberOfTickets: numberOfTickets || 1,
       totalAmount,
       qrCode,
+      bookingPassword,
       status: 'confirmed',
       paymentStatus: totalAmount > 0 ? 'pending' : 'completed'
     });
@@ -130,6 +152,40 @@ router.post('/', async (req, res) => {
     await registration.save();
 
     console.log('✅ Registration created:', registrationId);
+
+    // Send confirmation email with booking password
+    try {
+      const transporter = createEmailTransporter();
+      const emailHtml = generateRegistrationConfirmationEmail(
+        {
+          registrationId,
+          name,
+          email,
+          phoneNumber: phone,
+          organization: company,
+          bookingPassword
+        },
+        {
+          name: event.name,
+          date: event.date,
+          time: event.time,
+          venue: event.venue
+        },
+        qrCode
+      );
+
+      await transporter.sendMail({
+        from: `"Creative Era Events" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `Registration Confirmed - ${event.name} | Booking Password: ${bookingPassword}`,
+        html: emailHtml
+      });
+
+      console.log('✅ Confirmation email sent to:', email);
+    } catch (emailError) {
+      console.error('❌ Email sending failed:', emailError.message);
+      // Don't fail the registration if email fails
+    }
 
     // Emit socket event if available
     if (req.io) {
@@ -256,8 +312,113 @@ router.get('/:id', async (req, res) => {
 });
 
 /* =====================================================
-   GET REGISTRATIONS BY EVENT
+   GET USER BOOKINGS WITH PASSWORD VALIDATION
 ===================================================== */
+router.post('/my-bookings', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and booking password are required'
+      });
+    }
+
+    console.log('🔐 Validating booking access for:', email);
+
+    // Find registrations by email and password
+    const registrations = await Registration.find({ 
+      email: email.toLowerCase().trim(),
+      bookingPassword: password.trim()
+    }).sort({ createdAt: -1 });
+
+    if (!registrations || registrations.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or booking password'
+      });
+    }
+
+    // Get event details for each registration
+    const bookingsWithEvents = await Promise.all(
+      registrations.map(async (reg) => {
+        const event = await Event.findOne({ eventId: reg.eventId });
+        return {
+          ...reg.toObject(),
+          event: event ? {
+            name: event.name,
+            date: event.date,
+            time: event.time,
+            venue: event.venue,
+            imageUrl: event.imageUrl,
+            description: event.description
+          } : null
+        };
+      })
+    );
+
+    console.log('✅ Booking access granted for:', email);
+
+    return res.json({
+      success: true,
+      message: 'Bookings retrieved successfully',
+      data: bookingsWithEvents,
+      count: bookingsWithEvents.length
+    });
+
+  } catch (error) {
+    console.error('❌ My bookings error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error retrieving bookings'
+    });
+  }
+});
+
+/* =====================================================
+   GET REGISTRATIONS BY USER EMAIL (Legacy)
+===================================================== */
+router.get('/user/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    console.log('📋 Fetching registrations for user:', email);
+
+    const registrations = await Registration
+      .find({ email: email.toLowerCase() })
+      .sort({ createdAt: -1 });
+
+    // Get event details for each registration
+    const registrationsWithEvents = await Promise.all(
+      registrations.map(async (reg) => {
+        const event = await Event.findOne({ eventId: reg.eventId });
+        return {
+          ...reg.toObject(),
+          event: event ? {
+            name: event.name,
+            date: event.date,
+            time: event.time,
+            venue: event.venue
+          } : null
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      data: registrationsWithEvents,
+      count: registrationsWithEvents.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching user registrations:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching registrations'
+    });
+  }
+});
 router.get('/event/:eventId', async (req, res) => {
   try {
     const { eventId } = req.params;

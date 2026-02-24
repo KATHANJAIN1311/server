@@ -19,7 +19,72 @@ router.use((req, res, next) => {
   next();
 });
 
-// Create booking (alias for registration with validation)
+/* =====================================================
+   VERIFY BOOKING - Email + Password Authentication
+===================================================== */
+router.post('/verify', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email and password are required' 
+      });
+    }
+
+    console.log('🔐 Verifying booking access for:', email);
+
+    // Find registrations by email and password
+    const registrations = await Registration.find({ 
+      email: email.toLowerCase().trim(),
+      bookingPassword: password.trim()
+    });
+
+    if (!registrations || registrations.length === 0) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid email or password' 
+      });
+    }
+
+    // Get event details for each registration
+    const bookingsWithEvents = await Promise.all(
+      registrations.map(async (reg) => {
+        const event = await Event.findOne({ eventId: reg.eventId });
+        return {
+          ...reg.toObject(),
+          event: event ? {
+            name: event.name,
+            date: event.date,
+            time: event.time,
+            venue: event.venue,
+            imageUrl: event.imageUrl
+          } : null
+        };
+      })
+    );
+
+    console.log('✅ Booking access granted for:', email);
+
+    res.json({
+      success: true,
+      message: 'Access granted',
+      data: bookingsWithEvents
+    });
+    
+  } catch (error) {
+    console.error('❌ Booking verification error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
+  }
+});
+
+/* =====================================================
+   CREATE BOOKING (Validation)
+===================================================== */
 router.post('/', async (req, res) => {
   try {
     const { eventId, ticketTier } = req.body;

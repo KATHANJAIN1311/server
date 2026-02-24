@@ -1,5 +1,5 @@
 const generateRegistrationConfirmationEmail = (registrationData, eventData, qrCodeDataURL) => {
-  const { registrationId, name, email, phoneNumber, organization, designation } = registrationData;
+  const { registrationId, name, email, phoneNumber, organization, designation, bookingPassword } = registrationData;
   const { name: eventName, date, time, venue } = eventData || {};
 
   return `
@@ -31,6 +31,16 @@ const generateRegistrationConfirmationEmail = (registrationData, eventData, qrCo
                 <p style="color: #6b7280; margin: 0; font-size: 16px; line-height: 1.6;">
                     Thank you for registering with us. We're excited to have you join our event and look forward to providing you with an amazing experience.
                 </p>
+            </div>
+
+            <!-- Booking Password Section -->
+            <div style="background-color: #dcfce7; border-radius: 12px; padding: 25px; margin-bottom: 30px; border-left: 4px solid #22c55e; text-align: center;">
+                <h3 style="color: #1f2937; margin: 0 0 15px 0; font-size: 18px; font-weight: 600;">🔐 Your Booking Access Password</h3>
+                <p style="color: #6b7280; margin: 0 0 15px 0; font-size: 14px;">Use this password to view your booking details in the "My Booking" section</p>
+                <div style="background-color: #fff; border: 2px dashed #22c55e; border-radius: 8px; padding: 15px; display: inline-block;">
+                    <span style="font-size: 32px; font-weight: 700; color: #16a34a; letter-spacing: 3px;">${bookingPassword}</span>
+                </div>
+                <p style="color: #dc2626; margin: 15px 0 0 0; font-size: 13px; font-weight: 500;">⚠️ Keep this password secure and do not share it with anyone</p>
             </div>
 
             <!-- Registration Details -->
