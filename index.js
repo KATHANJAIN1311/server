@@ -23,7 +23,40 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3003;
 
 /* =====================================================
-   CORS CONFIGURATION
+   RAW CORS MIDDLEWARE - MUST BE FIRST
+===================================================== */
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    'https://creativeeraevents.in',
+    'https://www.creativeeraevents.in',
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000'
+  ];
+
+  const origin = req.headers.origin;
+
+  if (origin && (allowedOrigins.includes(origin) || origin.includes('creativeeraevents.in') || origin.includes('localhost'))) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cookie, X-CSRF-Token');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400');
+
+  if (req.method === 'OPTIONS') {
+    console.log(`[PREFLIGHT] ${req.headers['access-control-request-method']} ${req.url} from ${origin}`);
+    return res.status(204).end();
+  }
+
+  next();
+});
+
+/* =====================================================
+   CORS PACKAGE - SECONDARY LAYER
 ===================================================== */
 const corsOptions = {
   origin: function (origin, callback) {
@@ -34,58 +67,25 @@ const corsOptions = {
       'http://localhost:5173',
       'http://127.0.0.1:3000'
     ];
-    
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) {
-      return callback(null, true);
-    }
-    
-    // Always allow localhost for development
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      return callback(null, true);
-    }
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('creativeeraevents.in')) {
+    if (!origin) return callback(null, true);
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) return callback(null, true);
+    if (allowedOrigins.includes(origin) || origin.includes('creativeeraevents.in')) {
       callback(null, true);
     } else {
-      console.log('⚠️ CORS blocked origin:', origin);
-      callback(null, true); // Still allow but log it
+      console.log('⚠️ Unknown origin (allowing anyway):', origin);
+      callback(null, true);
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept', 'X-CSRF-Token', 'Origin'],
   exposedHeaders: ['Set-Cookie'],
-  optionsSuccessStatus: 200,
+  optionsSuccessStatus: 204,
   preflightContinue: false
 };
 
-// Apply CORS
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-
-// Manual CORS headers as backup
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const allowedOrigins = [
-    'https://creativeeraevents.in',
-    'https://www.creativeeraevents.in'
-  ];
-  
-  if (origin && (allowedOrigins.includes(origin) || origin.includes('localhost'))) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token, X-Requested-With, Accept, Cookie');
-    res.setHeader('Access-Control-Max-Age', '86400');
-  }
-  
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  next();
-});
 
 // Trust proxy
 app.set('trust proxy', 1);
@@ -97,31 +97,25 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
-// Logging
+// Request logging
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log('Origin:', req.headers.origin);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} | Origin: ${req.headers.origin || 'none'}`);
   next();
 });
 
-// Static files with error handling
+// Static files
 const uploadsPath = path.join(__dirname, 'uploads');
-console.log('📁 Uploads directory:', uploadsPath);
-
 app.use('/uploads', (req, res, next) => {
-  console.log('📷 Image request:', req.url);
   next();
 }, express.static(uploadsPath, {
-  setHeaders: (res, filePath) => {
+  setHeaders: (res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Cache-Control', 'public, max-age=31536000');
   },
   fallthrough: true
 }));
 
-// Handle missing images
 app.use('/uploads', (req, res) => {
-  console.log('❌ Image not found:', req.url);
   res.status(404).json({ success: false, message: 'Image not found' });
 });
 
@@ -130,10 +124,8 @@ app.use('/uploads', (req, res) => {
 ===================================================== */
 const io = socketIo(server, {
   cors: {
-    origin: function (origin, callback) {
-      callback(null, true);
-    },
-    methods: ["GET", "POST"],
+    origin: function (origin, callback) { callback(null, true); },
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true
   }
 });
@@ -150,34 +142,26 @@ app.use((req, res, next) => {
 });
 
 /* =====================================================
-   DATABASE CONNECTION
+   DATABASE
 ===================================================== */
 console.log('🔌 Connecting to MongoDB...');
-
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
   .then(() => {
-    console.log('✅ MongoDB Connected Successfully');
-    console.log('📦 Database:', mongoose.connection.name);
+    console.log('✅ MongoDB Connected:', mongoose.connection.name);
   })
   .catch(err => {
-    console.error('❌ MongoDB Connection Error:', err.message);
+    console.error('❌ MongoDB Error:', err.message);
     process.exit(1);
   });
 
-// Monitor connection
-mongoose.connection.on('error', err => {
-  console.error('❌ MongoDB error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('⚠️ MongoDB disconnected');
-});
+mongoose.connection.on('error', err => console.error('❌ MongoDB error:', err));
+mongoose.connection.on('disconnected', () => console.log('⚠️ MongoDB disconnected'));
 
 /* =====================================================
-   INITIALIZE DEFAULT ADMIN
+   ADMIN INIT
 ===================================================== */
 const initializeAdmin = async () => {
   try {
@@ -185,68 +169,48 @@ const initializeAdmin = async () => {
       console.warn('⚠️ Admin credentials not set in .env');
       return;
     }
-
     const existingAdmin = await Admin.findOne({ username: process.env.ADMIN_USERNAME });
-    
     if (existingAdmin) {
       console.log('✅ Admin user exists');
       return;
     }
-
     const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
-    await Admin.create({
-      username: process.env.ADMIN_USERNAME,
-      password: hashedPassword,
-      role: 'admin'
-    });
-
-    console.log('✅ Default admin created');
-    console.log(`   Username: ${process.env.ADMIN_USERNAME}`);
+    await Admin.create({ username: process.env.ADMIN_USERNAME, password: hashedPassword, role: 'admin' });
+    console.log('✅ Default admin created:', process.env.ADMIN_USERNAME);
   } catch (err) {
     console.error('❌ Error initializing admin:', err.message);
   }
 };
-
-// Initialize admin after DB connection
-mongoose.connection.once('open', () => {
-  initializeAdmin();
-});
+mongoose.connection.once('open', () => { initializeAdmin(); });
 
 /* =====================================================
-   HEALTH CHECK ROUTES
+   HEALTH ROUTES
 ===================================================== */
 app.get('/', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'Creative Era Events API is running',
-    timestamp: new Date().toISOString(),
-    mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
-  });
+  res.json({ success: true, message: 'Creative Era Events API', timestamp: new Date().toISOString() });
 });
 
 app.get('/api', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'API endpoint is working',
-    timestamp: new Date().toISOString()
-  });
+  res.json({ success: true, message: 'API is working', timestamp: new Date().toISOString() });
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'Server is healthy',
+  res.json({
+    success: true,
+    message: 'Server healthy',
     mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });
 });
 
-/* =====================================================
-   API ROUTES - REGISTER ALL ROUTES
-===================================================== */
-console.log('📝 Registering API routes...');
+app.get('/api/cors-test', (req, res) => {
+  res.json({ success: true, message: 'CORS is working!', origin: req.headers.origin });
+});
 
+/* =====================================================
+   ROUTES
+===================================================== */
 app.use('/api/events', eventRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/checkins', checkinRoutes);
@@ -254,82 +218,37 @@ app.use('/api/consultations', consultationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-console.log('✅ All routes registered');
-
 /* =====================================================
-   ERROR HANDLING
+   ERROR HANDLERS
 ===================================================== */
-// 404 handler
 app.use((req, res) => {
-  console.log('❌ Route not found:', req.method, req.url);
-  res.status(404).json({ 
-    success: false, 
-    message: `Route not found: ${req.method} ${req.url}`,
-    availableRoutes: [
-      'GET /',
-      'GET /api',
-      'GET /api/health',
-      'POST /api/admin/login',
-      'GET /api/events',
-      'POST /api/events',
-      'GET /api/registrations',
-      'POST /api/registrations',
-      'GET /api/checkins',
-      'POST /api/checkins',
-      'GET /api/consultations',
-      'POST /api/consultations',
-      'GET /api/bookings',
-      'POST /api/bookings'
-    ]
-  });
+  res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.url}` });
 });
 
-// Global error handler
 app.use((err, req, res, next) => {
   console.error('❌ Global error:', err);
-  console.error('Stack:', err.stack);
-  
-  res.status(err.status || 500).json({ 
-    success: false, 
-    message: err.message || 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal server error'
   });
 });
 
 /* =====================================================
-   START SERVER
+   START
 ===================================================== */
 server.listen(PORT, () => {
-  console.log('='.repeat(60));
-  console.log('🚀 CREATIVE ERA EVENTS API - SERVER STARTED');
-  console.log('='.repeat(60));
+  console.log('='.repeat(50));
+  console.log('🚀 SERVER STARTED');
   console.log(`📡 Port: ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`💾 MongoDB: ${mongoose.connection.readyState === 1 ? '✅ Connected' : '⏳ Connecting...'}`);
-  console.log(`🔗 API URL: http://localhost:${PORT}/api`);
   console.log(`🔗 Health: http://localhost:${PORT}/api/health`);
-  console.log('='.repeat(60));
+  console.log(`🔗 CORS Test: http://localhost:${PORT}/api/cors-test`);
+  console.log('='.repeat(50));
 });
 
-/* =====================================================
-   GRACEFUL SHUTDOWN
-===================================================== */
 process.on('SIGTERM', () => {
-  console.log('⚠️ SIGTERM received, closing server...');
   server.close(() => {
-    console.log('✅ Server closed');
-    mongoose.connection.close(false, () => {
-      console.log('✅ MongoDB connection closed');
-      process.exit(0);
-    });
+    mongoose.connection.close(false, () => { process.exit(0); });
   });
 });
-
-process.on('unhandledRejection', (err) => {
-  console.error('❌ Unhandled rejection:', err);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught exception:', err);
-  process.exit(1);
-});
+process.on('unhandledRejection', (err) => { console.error('❌ Unhandled rejection:', err); });
+process.on('uncaughtException', (err) => { console.error('❌ Uncaught exception:', err); process.exit(1); });
