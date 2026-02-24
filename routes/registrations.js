@@ -26,7 +26,7 @@ const generateBookingPassword = () => {
 
 // Email transporter setup
 const createEmailTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
@@ -155,7 +155,13 @@ router.post('/', async (req, res) => {
 
     // Send confirmation email with booking password
     try {
+      console.log('📧 Preparing to send confirmation email to:', email);
       const transporter = createEmailTransporter();
+      
+      // Verify transporter
+      await transporter.verify();
+      console.log('✅ Email transporter verified');
+      
       const emailHtml = generateRegistrationConfirmationEmail(
         {
           registrationId,
@@ -174,16 +180,35 @@ router.post('/', async (req, res) => {
         qrCode
       );
 
-      await transporter.sendMail({
+      const mailOptions = {
         from: `"Creative Era Events" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: `Registration Confirmed - ${event.name} | Booking Password: ${bookingPassword}`,
         html: emailHtml
+      };
+      
+      console.log('📤 Sending email with options:', {
+        from: mailOptions.from,
+        to: mailOptions.to,
+        subject: mailOptions.subject
       });
 
-      console.log('✅ Confirmation email sent to:', email);
+      const info = await transporter.sendMail(mailOptions);
+
+      console.log('✅ Confirmation email sent successfully!');
+      console.log('📧 Message ID:', info.messageId);
+      console.log('📬 Response:', info.response);
+      
     } catch (emailError) {
       console.error('❌ Email sending failed:', emailError.message);
+      console.error('🔍 Email error details:', emailError);
+      
+      if (emailError.code === 'EAUTH') {
+        console.error('🚨 Email authentication failed - check Gmail app password');
+      } else if (emailError.code === 'ENOTFOUND') {
+        console.error('🚨 Network error - check internet connection');
+      }
+      
       // Don't fail the registration if email fails
     }
 
