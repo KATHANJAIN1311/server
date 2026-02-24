@@ -270,6 +270,12 @@ router.get('/event/:eventId', async (req, res) => {
 /* =====================================================
    UPDATE REGISTRATION STATUS (CHECK-IN)
 ===================================================== */
+router.options('/:id/status', (req, res) => {
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.sendStatus(200);
+});
+
 router.patch('/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
