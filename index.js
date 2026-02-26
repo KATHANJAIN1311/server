@@ -16,6 +16,7 @@ const checkinRoutes = require('./routes/checkins');
 const consultationRoutes = require('./routes/consultations');
 const adminRoutes = require('./routes/admin');
 const bookingRoutes = require('./routes/bookings');
+const feedbackRoutes = require('./routes/feedback');
 const Admin = require('./models/Admin');
 
 const app = express();
@@ -217,6 +218,7 @@ app.use('/api/checkins', checkinRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 /* =====================================================
    ERROR HANDLERS

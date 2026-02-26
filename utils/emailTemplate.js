@@ -177,4 +177,91 @@ const generateRegistrationConfirmationEmail = (registrationData, eventData, qrCo
   `;
 };
 
-module.exports = { generateRegistrationConfirmationEmail };
+const generateThankYouEmail = (data) => {
+  const { name, eventName, photoLink } = data;
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thank You</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <div style="background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); padding: 40px 30px; text-align: center;">
+            <h1 style="color: #000; margin: 0; font-size: 28px; font-weight: 700;">Thank You! 🎉</h1>
+        </div>
+        <div style="padding: 40px 30px;">
+            <h2 style="color: #1f2937; margin: 0 0 15px 0; font-size: 24px; font-weight: 600;">Dear ${name},</h2>
+            <p style="color: #6b7280; margin: 0 0 20px 0; font-size: 16px; line-height: 1.6;">
+                Thank you for attending <strong>${eventName}</strong>! We hope you had an amazing experience.
+            </p>
+            ${photoLink ? `
+            <div style="background-color: #dcfce7; border-radius: 12px; padding: 25px; margin-bottom: 30px; text-align: center;">
+                <h3 style="color: #1f2937; margin: 0 0 15px 0; font-size: 18px; font-weight: 600;">📸 Your Event Photos</h3>
+                <p style="color: #6b7280; margin: 0 0 20px 0; font-size: 14px;">Click below to view and download your event photos</p>
+                <a href="${photoLink}" style="display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #000; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 16px;">View Photos 📷</a>
+            </div>
+            ` : ''}
+            <p style="color: #6b7280; margin: 0; font-size: 16px; line-height: 1.6;">
+                We look forward to seeing you at our future events!
+            </p>
+        </div>
+        <div style="background-color: #1f2937; padding: 30px; text-align: center;">
+            <p style="color: #d1d5db; margin: 0; font-size: 14px;">
+                © 2024 Creative Era Events. All rights reserved.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+  `;
+};
+
+const generateFeedbackRequestEmail = (data) => {
+  const { name, eventName, feedbackLink, customMessage } = data;
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback Request</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <div style="background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); padding: 40px 30px; text-align: center;">
+            <h1 style="color: #000; margin: 0; font-size: 28px; font-weight: 700;">We Value Your Feedback 💭</h1>
+        </div>
+        <div style="padding: 40px 30px;">
+            <h2 style="color: #1f2937; margin: 0 0 15px 0; font-size: 24px; font-weight: 600;">Dear ${name},</h2>
+            <p style="color: #6b7280; margin: 0 0 20px 0; font-size: 16px; line-height: 1.6;">
+                Thank you for attending <strong>${eventName}</strong>! Your feedback helps us improve and create better experiences.
+            </p>
+            ${customMessage ? `
+            <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px; margin-bottom: 30px; border-left: 4px solid #f59e0b;">
+                <p style="color: #1f2937; margin: 0; font-size: 15px; line-height: 1.6;">${customMessage}</p>
+            </div>
+            ` : ''}
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${feedbackLink}" style="display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #000; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 16px;">Share Your Feedback 📝</a>
+            </div>
+            <p style="color: #6b7280; margin: 0; font-size: 14px; line-height: 1.6; text-align: center;">
+                This will only take 2 minutes of your time.
+            </p>
+        </div>
+        <div style="background-color: #1f2937; padding: 30px; text-align: center;">
+            <p style="color: #d1d5db; margin: 0; font-size: 14px;">
+                © 2024 Creative Era Events. All rights reserved.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+  `;
+};
+
+module.exports = { generateRegistrationConfirmationEmail, generateThankYouEmail, generateFeedbackRequestEmail };
