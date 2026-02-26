@@ -68,8 +68,8 @@ const registrationSchema = new mongoose.Schema({
     required: true
   },
   customFieldValues: {
-    gender: { type: String },
-    profession: { type: String }
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   }
 }, {
   timestamps: true

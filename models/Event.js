@@ -50,18 +50,13 @@ const eventSchema = new mongoose.Schema({
     price: { type: Number, required: true },
     seats: { type: Number, required: true }
   }],
-  customFields: {
-    gender: {
-      enabled: { type: Boolean, default: false },
-      required: { type: Boolean, default: false },
-      options: [{ type: String }]
-    },
-    profession: {
-      enabled: { type: Boolean, default: false },
-      required: { type: Boolean, default: false },
-      options: [{ type: String }]
-    }
-  }
+  customFields: [{
+    fieldName: { type: String, required: true },
+    fieldLabel: { type: String, required: true },
+    fieldType: { type: String, enum: ['text', 'dropdown', 'textarea'], default: 'text' },
+    required: { type: Boolean, default: false },
+    options: [{ type: String }]
+  }]
 }, {
   timestamps: true
 });
