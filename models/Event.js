@@ -49,7 +49,19 @@ const eventSchema = new mongoose.Schema({
     name: { type: String, required: true },
     price: { type: Number, required: true },
     seats: { type: Number, required: true }
-  }]
+  }],
+  customFields: {
+    gender: {
+      enabled: { type: Boolean, default: false },
+      required: { type: Boolean, default: false },
+      options: [{ type: String }]
+    },
+    profession: {
+      enabled: { type: Boolean, default: false },
+      required: { type: Boolean, default: false },
+      options: [{ type: String }]
+    }
+  }
 }, {
   timestamps: true
 });

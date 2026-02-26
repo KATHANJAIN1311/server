@@ -42,7 +42,7 @@ router.post('/', async (req, res) => {
   try {
     console.log('📝 Creating new registration:', req.body);
 
-    const { eventId, name, email, phone, company, ticketTier, numberOfTickets } = req.body;
+    const { eventId, name, email, phone, company, ticketTier, numberOfTickets, customFieldValues } = req.body;
 
     // Validate required fields
     if (!eventId || !name || !email || !phone) {
@@ -146,7 +146,8 @@ router.post('/', async (req, res) => {
       qrCode,
       bookingPassword,
       status: 'confirmed',
-      paymentStatus: totalAmount > 0 ? 'pending' : 'completed'
+      paymentStatus: totalAmount > 0 ? 'pending' : 'completed',
+      customFieldValues: customFieldValues || {}
     });
 
     await registration.save();

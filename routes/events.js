@@ -201,6 +201,18 @@ router.post('/', (req, res) => {
           }
         }
         
+        // Parse customFields if it's a string
+        if (typeof eventData.customFields === 'string') {
+          try {
+            eventData.customFields = JSON.parse(eventData.customFields);
+          } catch (parseError) {
+            eventData.customFields = {
+              gender: { enabled: false, required: false, options: ['Male', 'Female', 'Other'] },
+              profession: { enabled: false, required: false, options: ['Education', 'Student', 'Professional', 'Other'] }
+            };
+          }
+        }
+        
         if (req.file) {
           eventData.imageUrl = `/uploads/${req.file.filename}`;
         }

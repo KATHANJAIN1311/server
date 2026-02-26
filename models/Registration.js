@@ -66,6 +66,10 @@ const registrationSchema = new mongoose.Schema({
   bookingPassword: {
     type: String,
     required: true
+  },
+  customFieldValues: {
+    gender: { type: String },
+    profession: { type: String }
   }
 }, {
   timestamps: true
