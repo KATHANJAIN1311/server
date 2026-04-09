@@ -1,8 +1,7 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const session = require('express-session');
 const cookieParser = require('cookie-parser');
+const session = require('express-session');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -24,10 +23,11 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3003;
 
 /* =====================================================
-   RAW CORS MIDDLEWARE - MUST BE FIRST
+   CORS MIDDLEWARE
 ===================================================== */
 app.use((req, res, next) => {
-  const allowedOrigins = [
+  const origin = req.headers.origin;
+  const allowed = [
     'https://creativeeraevents.in',
     'https://www.creativeeraevents.in',
     'http://localhost:3000',
@@ -35,12 +35,8 @@ app.use((req, res, next) => {
     'http://127.0.0.1:3000'
   ];
 
-  const origin = req.headers.origin;
-
-  if (origin && (allowedOrigins.includes(origin) || origin.includes('creativeeraevents.in') || origin.includes('localhost'))) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else if (!origin) {
-    res.header('Access-Control-Allow-Origin', '*');
+  if (!origin || allowed.includes(origin) || origin.includes('localhost') || origin.includes('creativeeraevents.in')) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
   }
 
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
@@ -49,46 +45,11 @@ app.use((req, res, next) => {
   res.header('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') {
-    console.log(`[PREFLIGHT] ${req.headers['access-control-request-method']} ${req.url} from ${origin}`);
     return res.status(204).end();
   }
-
   next();
 });
 
-/* =====================================================
-   CORS PACKAGE - SECONDARY LAYER
-===================================================== */
-const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'https://creativeeraevents.in',
-      'https://www.creativeeraevents.in',
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://127.0.0.1:3000'
-    ];
-    if (!origin) return callback(null, true);
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) return callback(null, true);
-    if (allowedOrigins.includes(origin) || origin.includes('creativeeraevents.in')) {
-      callback(null, true);
-    } else {
-      console.log('⚠️ Unknown origin (allowing anyway):', origin);
-      callback(null, true);
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept', 'X-CSRF-Token', 'Origin'],
-  exposedHeaders: ['Set-Cookie'],
-  optionsSuccessStatus: 204,
-  preflightContinue: false
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-
-// Trust proxy
 app.set('trust proxy', 1);
 
 /* =====================================================
